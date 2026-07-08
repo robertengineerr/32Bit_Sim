@@ -19,20 +19,20 @@ export function buildDefaultCircuit() {
 // IO2 -> 220 ohm resistor -> LED -> GND
 // Button between IO3 and GND (internal pull-up enabled)
 
-const LED_PIN = 2;
-const BUTTON_PIN = 3;
+const int LED_PIN = 2;
+const int BUTTON_PIN = 3;
 
-function setup() {
+void setup() {
   Serial.begin(115200);
   pinMode(LED_PIN, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   Serial.println("Ready. Press the button to light the LED.");
 }
 
-async function loop() {
-  const pressed = digitalRead(BUTTON_PIN) === LOW;
+void loop() {
+  bool pressed = digitalRead(BUTTON_PIN) == LOW;
   digitalWrite(LED_PIN, pressed ? HIGH : LOW);
-  await delay(20);
+  delay(20);
 }
 `;
 
@@ -40,150 +40,168 @@ async function loop() {
 }
 
 export const CODE_SNIPPETS = {
-  'Blink (built-in style)': `const LED_PIN = 2;
+  'Blink (built-in style)': `const int LED_PIN = 2;
 
-function setup() {
+void setup() {
   pinMode(LED_PIN, OUTPUT);
 }
 
-async function loop() {
+void loop() {
   digitalWrite(LED_PIN, HIGH);
-  await delay(500);
+  delay(500);
   digitalWrite(LED_PIN, LOW);
-  await delay(500);
+  delay(500);
 }
 `,
-  'Potentiometer -> Serial': `const POT_PIN = 0; // analog-capable GPIO
+  'Potentiometer -> Serial': `const int POT_PIN = 0; // analog-capable GPIO
 
-function setup() {
+void setup() {
   Serial.begin(115200);
 }
 
-async function loop() {
-  const v = analogRead(POT_PIN);
-  Serial.println("pot = " + v);
-  await delay(200);
+void loop() {
+  int v = analogRead(POT_PIN);
+  Serial.println("pot = " + String(v));
+  delay(200);
 }
 `,
-  'Servo sweep': `let myServo = new Servo();
+  'Servo sweep': `#include <Servo.h>
+Servo myServo;
 
-function setup() {
+void setup() {
   myServo.attach(5); // SIG pin wired to IO5
 }
 
-async function loop() {
-  for (let a = 0; a <= 180; a += 5) {
+void loop() {
+  for (int a = 0; a <= 180; a += 5) {
     myServo.write(a);
-    await delay(20);
+    delay(20);
   }
-  for (let a = 180; a >= 0; a -= 5) {
+  for (int a = 180; a >= 0; a -= 5) {
     myServo.write(a);
-    await delay(20);
+    delay(20);
   }
 }
 `,
-  'DHT11 + OLED': `let dht = new DHT(4); // DATA wired to IO4
-let oled = new OLED();
+  'DHT11 + OLED': `#include <DHT.h>
+#include <Adafruit_SSD1306.h>
 
-function setup() {
+#define DHTPIN 4
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE); // DATA wired to IO4
+Adafruit_SSD1306 display(128, 64, &Wire, -1);
+
+void setup() {
   dht.begin();
-  oled.begin();
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
 }
 
-async function loop() {
-  const t = dht.readTemperature();
-  const h = dht.readHumidity();
-  oled.clearDisplay();
-  oled.setCursor(0, 0);
-  oled.println("Temp: " + t.toFixed(1) + " C");
-  oled.setCursor(0, 13);
-  oled.println("Humidity: " + h.toFixed(0) + " %");
-  oled.display();
-  await delay(500);
+void loop() {
+  float t = dht.readTemperature();
+  float h = dht.readHumidity();
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.println("Temp: " + String(t, 1) + " C");
+  display.setCursor(0, 13);
+  display.println("Humidity: " + String(h, 0) + " %");
+  display.display();
+  delay(500);
 }
 `,
-  'Ultrasonic + Buzzer': `const TRIG = 6, ECHO = 7, BUZZ = 10;
+  'Ultrasonic + Buzzer': `const int TRIG = 6, ECHO = 7, BUZZ = 10;
 
-function setup() {
+void setup() {
   pinMode(TRIG, OUTPUT);
   pinMode(ECHO, INPUT);
   pinMode(BUZZ, OUTPUT);
   Serial.begin(115200);
 }
 
-async function loop() {
+void loop() {
   digitalWrite(TRIG, LOW);
-  await delayMicroseconds(2);
+  delayMicroseconds(2);
   digitalWrite(TRIG, HIGH);
-  await delayMicroseconds(10);
+  delayMicroseconds(10);
   digitalWrite(TRIG, LOW);
 
-  const duration = await pulseIn(ECHO, HIGH);
-  const distanceCm = duration / 58;
-  Serial.println("distance = " + distanceCm.toFixed(1) + " cm");
+  long duration = pulseIn(ECHO, HIGH);
+  float distanceCm = duration / 58.0;
+  Serial.println("distance = " + String(distanceCm, 1) + " cm");
   digitalWrite(BUZZ, distanceCm < 10 ? HIGH : LOW);
-  await delay(150);
+  delay(150);
 }
 `,
   'Stepper via ULN2003': `// IN1-IN4 wired to any 4 GPIOs, in that order, driving ULN2003 IN1-IN4
-const pins = [4, 5, 6, 7];
-const seq = [
-  [1,0,0,0],[1,1,0,0],[0,1,0,0],[0,1,1,0],
-  [0,0,1,0],[0,0,1,1],[0,0,0,1],[1,0,0,1],
-];
+int pins[] = {4, 5, 6, 7};
+int seq[8][4] = {
+  {1,0,0,0},{1,1,0,0},{0,1,0,0},{0,1,1,0},
+  {0,0,1,0},{0,0,1,1},{0,0,0,1},{1,0,0,1},
+};
 
-function setup() {
-  for (const p of pins) pinMode(p, OUTPUT);
+void setup() {
+  for (int i = 0; i < 4; i++) pinMode(pins[i], OUTPUT);
 }
 
-async function loop() {
-  for (const step of seq) {
-    for (let i = 0; i < 4; i++) digitalWrite(pins[i], step[i]);
-    await delay(3);
+void loop() {
+  for (int s = 0; s < 8; s++) {
+    for (int i = 0; i < 4; i++) digitalWrite(pins[i], seq[s][i]);
+    delay(3);
   }
 }
 `,
-  '74HC595 -> LEDs': `const DATA = 4, CLOCK = 5, LATCH = 6;
+  '74HC595 -> LEDs': `const int DATA = 4, CLOCK = 5, LATCH = 6;
 
-function setup() {
+void setup() {
   pinMode(DATA, OUTPUT);
   pinMode(CLOCK, OUTPUT);
   pinMode(LATCH, OUTPUT);
 }
 
-async function loop() {
-  for (let i = 0; i < 8; i++) {
+void loop() {
+  for (int i = 0; i < 8; i++) {
     digitalWrite(LATCH, LOW);
     shiftOut(DATA, CLOCK, MSBFIRST, 1 << i);
     digitalWrite(LATCH, HIGH);
-    await delay(120);
+    delay(120);
   }
 }
 `,
-  'IR Remote receiver': `let irrecv = new IRrecv(9); // OUT pin wired to IO9
+  'IR Remote receiver': `#include <IRremote.h>
+IRrecv irrecv(9); // OUT pin wired to IO9
+decode_results results;
 
-function setup() {
+void setup() {
   Serial.begin(115200);
   irrecv.enableIRIn();
 }
 
-function loop() {
-  const results = irrecv.decode();
-  if (results) {
-    Serial.println("IR received: " + results.name);
+void loop() {
+  if (irrecv.decode(&results)) {
+    Serial.println("IR received: " + String(results.name));
+    irrecv.resume();
   }
 }
 `,
-  'RC522 RFID tap': `let rfid = new RFID(8); // SDA wired to IO8
+  'RC522 RFID tap': `#include <MFRC522.h>
+#define SS_PIN 8
+#define RST_PIN 9
+MFRC522 rfid(SS_PIN, RST_PIN); // SDA wired to IO8
 
-function setup() {
+void setup() {
   Serial.begin(115200);
-  rfid.begin();
+  rfid.PCD_Init();
 }
 
-function loop() {
-  const uid = rfid.readUID();
-  if (uid) Serial.println("Card UID: " + uid);
+void loop() {
+  if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
+    Serial.print("Card UID:");
+    for (int i = 0; i < rfid.uid.size; i++) {
+      Serial.print(" ");
+      Serial.print(rfid.uid.uidByte[i]);
+    }
+    Serial.println();
+    rfid.PICC_HaltA();
+  }
 }
 `,
 };

@@ -63,7 +63,11 @@ export const catalog = {
       pins: Object.fromEntries([0,1,2,3,4,5,6,7,8,9,10,18,19,20,21].map((n) => [n, { mode: 'INPUT', value: 0, pwmValue: null }])),
       wireConfig: null, // { sda, scl } set by Wire.begin()
       running: false,
+      bootPressed: false,
+      rstPressed: false,
     }),
+    // Mirrors real ESP32-C3 dev-board wiring: the BOOT button shorts GPIO9 to GND while held.
+    getConnectors: (part) => (part.state.bootPressed ? [['IO9', 'GND1']] : []),
     getPinDrive: esp32PinDrive,
   },
 

@@ -149,6 +149,14 @@ export class Simulator {
     return this.getPart(this.esp32Id);
   }
 
+  resetPins() {
+    const esp = this.esp32();
+    if (!esp) return;
+    for (const n of Object.keys(esp.state.pins)) {
+      esp.state.pins[n] = { mode: 'INPUT', value: 0, pwmValue: null };
+    }
+  }
+
   pinMode(pin, mode) {
     const esp = this.esp32();
     if (!esp) return;

@@ -10,7 +10,11 @@ function reviver(key, value) {
 }
 
 export function serializeProject(parts, wires, code) {
-  const plainParts = parts.map((p) => ({ id: p.id, type: p.type, x: p.x, y: p.y, label: p.label, state: p.state }));
+  const plainParts = parts.map((p) => ({
+    id: p.id, type: p.type, x: p.x, y: p.y,
+    rotation: p.rotation || 0, flipped: p.flipped || false,
+    label: p.label, state: p.state,
+  }));
   return JSON.stringify({ parts: plainParts, wires, code, version: 1 }, replacer);
 }
 
