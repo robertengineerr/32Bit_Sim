@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useSyncExternalStore, useCallback }
 import { Simulator } from './engine/simulator.js';
 import { createRuntime } from './engine/runtime.js';
 import { AudioManager } from './engine/audio.js';
-import { buildDefaultCircuit, CODE_SNIPPETS } from './data/examples.js';
+import { buildDefaultCircuit, EXAMPLES } from './data/examples.js';
 import { createPart } from './utils/circuitFactory.js';
 import { saveToLocalStorage, loadFromLocalStorage, downloadProject, deserializeProject } from './utils/persist.js';
 import Canvas from './components/Canvas.js';
@@ -138,15 +138,25 @@ export default function App() {
     className: "btn",
     value: snippetName,
     onChange: e => {
-      setSnippetName(e.target.value);
-      if (CODE_SNIPPETS[e.target.value]) setCode(CODE_SNIPPETS[e.target.value]);
+      const name = e.target.value;
+      setSnippetName(name);
+      const ex = EXAMPLES.find(x => x.name === name);
+      if (!ex) return;
+      setCode(ex.code);
+      if (ex.build) {
+        const { parts, wires } = ex.build();
+        simulator.setCircuit(parts, wires);
+        setSelectedIds(new Set());
+        setSelectedWireId(null);
+        bump();
+      }
     }
   }, /*#__PURE__*/React.createElement("option", {
     value: ""
-  }, "Load code example\u2026"), Object.keys(CODE_SNIPPETS).map(name => /*#__PURE__*/React.createElement("option", {
-    key: name,
-    value: name
-  }, name))), /*#__PURE__*/React.createElement("button", {
+  }, "Load example\u2026"), EXAMPLES.map(ex => /*#__PURE__*/React.createElement("option", {
+    key: ex.name,
+    value: ex.name
+  }, ex.name))), /*#__PURE__*/React.createElement("button", {
     className: "btn",
     onClick: handleLoadDemo
   }, "Starter Circuit"), /*#__PURE__*/React.createElement("button", {

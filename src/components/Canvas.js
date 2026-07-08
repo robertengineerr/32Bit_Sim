@@ -334,7 +334,7 @@ export default function Canvas({
     cx: 1,
     cy: 1,
     r: 1,
-    fill: "#e2e8f0"
+    fill: "#1e293b"
   }))), /*#__PURE__*/React.createElement("rect", {
     x: 0,
     y: 0,
