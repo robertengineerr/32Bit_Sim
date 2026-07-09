@@ -6,6 +6,19 @@ export const digital = (value) => ({ kind: 'digital', value }); // 'HIGH' | 'LOW
 export const pwm = (value) => ({ kind: 'pwm', value }); // 0..255
 export const analog = (value) => ({ kind: 'analog', value }); // 0..4095
 
+export const VCC_VOLTS = 3.3;
+
+// Convert a logical level object to a fixed voltage (or null for floating/Hi-Z).
+export function levelToVoltage(level) {
+  if (!level) return null;
+  if (level.kind === 'gnd') return 0;
+  if (level.kind === 'vcc') return VCC_VOLTS;
+  if (level.kind === 'digital') return level.value === 'HIGH' ? VCC_VOLTS : 0;
+  if (level.kind === 'pwm') return (level.value / 255) * VCC_VOLTS;
+  if (level.kind === 'analog') return (level.value / 4095) * VCC_VOLTS;
+  return null; // floating
+}
+
 export function levelIsHigh(level) {
   if (!level) return false;
   if (level.kind === 'vcc') return true;

@@ -82,4 +82,7 @@ body {
 
 .selection-toolbar-btn:hover circle { fill: #334155; }
 
+.scope-panel { flex: 0 0 auto; border-top: 1px solid #1f2937; }
+.scope-panel svg { display: block; }
+
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

@@ -35,12 +35,15 @@ export default function Canvas({
   setSelectedIds,
   selectedWireId,
   setSelectedWireId,
-  onResetBoard
+  onResetBoard,
+  probeMode,
+  onScopePin
 }) {
   const svgRef = useRef(null);
   const [wireDraft, setWireDraft] = useState(null); // { partId, pin }
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [marqueeRect, setMarqueeRect] = useState(null);
+  const [hoveredPinInfo, setHoveredPinInfo] = useState(null); // { partId, pin }
   const dragRef = useRef(null); // { origins: Map<partId,{x,y}>, startX, startY }
   const marqueeRef = useRef(null); // { startX, startY, additive, baseSelection }
   const joystickDragRef = useRef(null); // partId
@@ -125,10 +128,16 @@ export default function Canvas({
   }, [toLocal, setSelectedIds, setSelectedWireId, selectedIds]);
 
   const onPinDown = useCallback((partId, pin) => {
+    if (probeMode) {
+      // In probe mode, clicking a pin adds it to the scope instead of starting a wire
+      onScopePin && onScopePin(partId, pin);
+      return;
+    }
     setWireDraft({ partId, pin });
-  }, []);
+  }, [probeMode, onScopePin]);
 
   const onPinUp = useCallback((partId, pin) => {
+    if (probeMode) return; // no wires in probe mode
     if (wireDraft && !(wireDraft.partId === partId && wireDraft.pin === pin)) {
       simulator.wires.push({
         id: `w${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -139,7 +148,7 @@ export default function Canvas({
       bump();
     }
     setWireDraft(null);
-  }, [wireDraft, simulator, bump]);
+  }, [wireDraft, simulator, bump, probeMode]);
 
   const onCanvasMouseUp = useCallback(() => {
     endDrag();
@@ -319,12 +328,37 @@ export default function Canvas({
     if (minX !== Infinity) selectionBounds = { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
   }
 
+  // Tooltip for hovered pin
+  let tooltip = null;
+  if (hoveredPinInfo && resolve) {
+    const voltage = resolve.voltageOf(hoveredPinInfo.partId, hoveredPinInfo.pin);
+    const level = resolve.levelOf(hoveredPinInfo.partId, hoveredPinInfo.pin);
+    const voltStr = voltage !== null ? voltage.toFixed(2) + 'V' : 'Hi-Z';
+    const kindStr = level ? level.kind : '';
+    const text = `${voltStr}  ${kindStr}`;
+    const tx = mousePos.x + 14;
+    const ty = mousePos.y - 22;
+    tooltip = /*#__PURE__*/React.createElement("g", {
+      style: { pointerEvents: 'none' }
+    },
+      /*#__PURE__*/React.createElement("rect", {
+        x: tx - 4, y: ty - 12, width: text.length * 6.5 + 8, height: 16,
+        rx: 3, fill: "#1f2937", stroke: "#374151", strokeWidth: 1, opacity: 0.95
+      }),
+      /*#__PURE__*/React.createElement("text", {
+        x: tx, y: ty,
+        fontSize: 10, fill: "#f1f5f9", fontFamily: "monospace"
+      }, text)
+    );
+  }
+
   return /*#__PURE__*/React.createElement("svg", {
     ref: svgRef,
     className: "canvas-svg",
     onMouseMove: handleMouseMove,
     onMouseUp: onCanvasMouseUp,
-    onMouseDown: onCanvasMouseDown
+    onMouseDown: onCanvasMouseDown,
+    style: probeMode ? { cursor: 'crosshair' } : undefined
   }, /*#__PURE__*/React.createElement("defs", null, /*#__PURE__*/React.createElement("pattern", {
     id: "grid",
     width: 20,
@@ -342,8 +376,12 @@ export default function Canvas({
     height: "100%",
     fill: "url(#grid)"
   }), wires.map(w => {
-    const pa = pinAbsPos(simulator.getPart(w.a.partId), w.a.pin);
-    const pb = pinAbsPos(simulator.getPart(w.b.partId), w.b.pin);
+    const partA = simulator.getPart(w.a.partId);
+    const partB = simulator.getPart(w.b.partId);
+    if (!partA || !partB) return null;
+    const pa = pinAbsPos(partA, w.a.pin);
+    const pb = pinAbsPos(partB, w.b.pin);
+    if (!pa || !pb) return null;
     const mx = (pa.x + pb.x) / 2;
     const my = (pa.y + pb.y) / 2;
     const selected = selectedWireId === w.id;
@@ -380,7 +418,10 @@ export default function Canvas({
       fill: "white"
     }, "\xD7")));
   }), wireDraft && (() => {
-    const pa = pinAbsPos(simulator.getPart(wireDraft.partId), wireDraft.pin);
+    const partA = simulator.getPart(wireDraft.partId);
+    if (!partA) return null;
+    const pa = pinAbsPos(partA, wireDraft.pin);
+    if (!pa) return null;
     return /*#__PURE__*/React.createElement("path", {
       d: `M ${pa.x} ${pa.y} L ${mousePos.x} ${mousePos.y}`,
       stroke: "#facc15",
@@ -397,7 +438,9 @@ export default function Canvas({
     onPartMouseDown: onPartMouseDown,
     onPinDown: onPinDown,
     onPinUp: onPinUp,
-    onInteract: onInteract
+    onInteract: onInteract,
+    onPinHover: (pId, pin) => setHoveredPinInfo({ partId: pId, pin }),
+    onPinLeave: () => setHoveredPinInfo(null)
   })), marqueeRect && (marqueeRect.width > 0 || marqueeRect.height > 0) && /*#__PURE__*/React.createElement("rect", {
     x: marqueeRect.x,
     y: marqueeRect.y,
@@ -414,6 +457,6 @@ export default function Canvas({
     onFlip: flipSelection,
     onDuplicate: duplicateSelection,
     onDelete: deleteSelection
-  }));
+  }), tooltip);
 }
 const WIRE_COLORS = ['#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#a855f7', '#06b6d4', '#ec4899', '#84cc16'];

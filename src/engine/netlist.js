@@ -8,6 +8,8 @@
 // (buttons, relays, transistors, tilt/PIR/membrane), and analog sensor pins
 // that inject a 0-4095 analog value onto their net.
 
+import { levelToVoltage } from './simHelpers.js';
+
 function pinKey(partId, pin) {
   return `${partId}::${pin}`;
 }
@@ -33,6 +35,135 @@ class UnionFind {
     const rb = this.find(b);
     if (ra !== rb) this.parent.set(ra, rb);
   }
+}
+
+// Parse resistance from a resistor's value string (e.g. "220", "1k", "10k", "1M")
+function parseResistance(valueStr) {
+  if (!valueStr) return 1000;
+  const s = String(valueStr).trim();
+  if (s.endsWith('M') || s.endsWith('m')) return parseFloat(s) * 1e6;
+  if (s.endsWith('k') || s.endsWith('K')) return parseFloat(s) * 1e3;
+  return parseFloat(s) || 1000;
+}
+
+// Second-pass analog voltage solver using Gauss-Seidel relaxation.
+// Builds its own union-find that EXCLUDES resistor getConnectors (so resistors
+// are conductance edges, not shorts). Returns voltageOf() and analogNets.
+function solveAnalogVoltages(parts, wires, catalog, netLevels, partById) {
+  // Build a UF that only uses wires (not resistor shorts, not any part connectors)
+  // so each resistor terminal is its own "analog net".
+  const uf = new UnionFind();
+
+  // Only wire-based connections (no part getConnectors)
+  for (const w of wires) {
+    uf.union(pinKey(w.a.partId, w.a.pin), pinKey(w.b.partId, w.b.pin));
+  }
+
+  // Include all part pins in the UF so isolated pins get a root
+  const allPinKeys = new Set();
+  for (const w of wires) {
+    allPinKeys.add(pinKey(w.a.partId, w.a.pin));
+    allPinKeys.add(pinKey(w.b.partId, w.b.pin));
+  }
+  for (const part of parts) {
+    const def = catalog[part.type];
+    if (!def) continue;
+    for (const pin of def.pins) allPinKeys.add(pinKey(part.id, pin.name));
+  }
+
+  // Enumerate nets
+  const netRoots = new Set();
+  for (const key of allPinKeys) netRoots.add(uf.find(key));
+
+  // Assign net indices
+  const netIndex = new Map(); // root -> index
+  let ni = 0;
+  for (const root of netRoots) netIndex.set(root, ni++);
+
+  const N = netIndex.size;
+  const V = new Float64Array(N); // voltage per net, initialized 0
+  const fixed = new Uint8Array(N); // 1 if net has a fixed voltage source
+
+  // Helper: net index for a pin key
+  function netOf(key) {
+    return netIndex.get(uf.find(key));
+  }
+
+  // Assign fixed voltages from drives + capacitor state
+  for (const part of parts) {
+    const def = catalog[part.type];
+    if (!def) continue;
+
+    for (const pin of def.pins) {
+      const key = pinKey(part.id, pin.name);
+      const ni2 = netOf(key);
+      if (ni2 === undefined) continue;
+
+      // Check if this part drives this pin (use existing netLevels from logical solver)
+      const level = netLevels ? netLevels.get(key) : null;
+      const v = levelToVoltage(level);
+      if (v !== null) {
+        V[ni2] = v;
+        fixed[ni2] = 1;
+      }
+
+      // Capacitor: its + pin contributes vc as a fixed voltage on the + net
+      if (part.type === 'capacitor' && pin.name === '+') {
+        const vc = part.state ? part.state.vc : 0;
+        if (!fixed[ni2]) {
+          V[ni2] = vc || 0;
+          // capacitor pin is NOT a hard voltage source — don't set fixed
+          // (it participates in Gauss-Seidel relaxation weighted by its internal state)
+        }
+      }
+    }
+  }
+
+  // Build resistor conductance edges
+  // Each resistor contributes an edge between its two pin nets
+  const edges = []; // { netA, netB, G } where G = 1/R
+  for (const part of parts) {
+    if (part.type !== 'resistor') continue;
+    const def = catalog[part.type];
+    if (!def) continue;
+    const R = parseResistance(part.state && part.state.value);
+    const G = 1 / Math.max(R, 1e-6);
+    const keyA = pinKey(part.id, 'A');
+    const keyB = pinKey(part.id, 'B');
+    const nA = netOf(keyA);
+    const nB = netOf(keyB);
+    if (nA === undefined || nB === undefined || nA === nB) continue;
+    edges.push({ netA: nA, netB: nB, G, partId: part.id });
+  }
+
+  // Gauss-Seidel relaxation: 30 iterations
+  for (let iter = 0; iter < 30; iter++) {
+    for (let i = 0; i < N; i++) {
+      if (fixed[i]) continue;
+      let sumGV = 0;
+      let sumG = 0;
+      for (const e of edges) {
+        if (e.netA === i) { sumGV += e.G * V[e.netB]; sumG += e.G; }
+        else if (e.netB === i) { sumGV += e.G * V[e.netA]; sumG += e.G; }
+      }
+      if (sumG > 0) V[i] = sumGV / sumG;
+    }
+  }
+
+  // Helper to look up net index for a (partId, pin) pair
+  function netOfPinKey(partId, pin) {
+    const key = pinKey(partId, pin);
+    return netIndex.get(uf.find(key));
+  }
+
+  return {
+    voltageOf(partId, pin) {
+      const ni2 = netOfPinKey(partId, pin);
+      if (ni2 === undefined) return null;
+      return V[ni2];
+    },
+    analogNets: { netOf: netOfPinKey, edges, V },
+  };
 }
 
 // Runs the fixed-point resolution described above. `getConnectors(part, prevLevels)`
@@ -124,10 +255,17 @@ export function resolveCircuit(parts, wires, catalog) {
     netLevels = levels;
   }
 
+  // Run the analog voltage solver as a second pass
+  const analogResult = solveAnalogVoltages(parts, wires, catalog, netLevels, partById);
+
   return {
     levelOf(partId, pin) {
       return netLevels.get(pinKey(partId, pin)) || { kind: 'floating', value: null };
     },
+    voltageOf(partId, pin) {
+      return analogResult.voltageOf(partId, pin);
+    },
+    analogNets: analogResult.analogNets,
     connected(partIdA, pinA, partIdB, pinB) {
       const netA = netOfPin.get(pinKey(partIdA, pinA));
       if (!netA) return false;

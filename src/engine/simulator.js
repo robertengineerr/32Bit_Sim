@@ -15,6 +15,16 @@ function bitsEqual(a, b) {
   return a && b && a.length === b.length && a.every((v, i) => v === b[i]);
 }
 
+// Parse capacitance value string to farads.
+// Supports suffixes: n (nano), u (micro), no suffix (farads)
+function parseCapacitance(valueStr) {
+  if (!valueStr) return 100e-6;
+  const s = String(valueStr).trim().toLowerCase();
+  if (s.endsWith('u')) return parseFloat(s) * 1e-6;
+  if (s.endsWith('n')) return parseFloat(s) * 1e-9;
+  return parseFloat(s) || 100e-6;
+}
+
 export class Simulator {
   constructor() {
     this.parts = [];
@@ -29,6 +39,9 @@ export class Simulator {
     this.consoleLines = [];
     this.onConsole = null;
     this.running = false;
+    // Scope / oscilloscope support
+    this.scopePins = []; // array of {partId, pin, color, label} set externally from App
+    this.scopeHistory = []; // array of {voltages: [v0,v1,...]} pushed each tick, max 150 items
   }
 
   setCircuit(parts, wires) {
@@ -89,6 +102,8 @@ export class Simulator {
     this.updateBuzzers(r);
     this.updateFans(r);
     this.updateRelayVisual(r);
+    this.updateCapacitors(r);
+    this.updateScopeHistory(r);
     this.emit();
   }
 
@@ -141,6 +156,48 @@ export class Simulator {
     for (const rel of this.parts.filter((p) => p.type === 'relay')) {
       rel.state.energized = levelIsHigh(r.levelOf(rel.id, 'IN'));
     }
+  }
+
+  updateCapacitors(r) {
+    const dt = TICK_MS / 1000; // seconds per tick
+    const { analogNets } = r;
+    if (!analogNets) return;
+    const { netOf, edges, V } = analogNets;
+
+    for (const cap of this.parts.filter((p) => p.type === 'capacitor')) {
+      const capPlusNet = netOf(cap.id, '+');
+      if (capPlusNet === undefined) continue;
+
+      // Find all resistors touching the cap+ net
+      let sumG = 0;
+      let sumGV = 0;
+      for (const e of edges) {
+        let otherNet = null;
+        if (e.netA === capPlusNet) otherNet = e.netB;
+        else if (e.netB === capPlusNet) otherNet = e.netA;
+        if (otherNet === null) continue;
+        sumG += e.G;
+        sumGV += e.G * V[otherNet];
+      }
+
+      const vc = cap.state.vc || 0;
+      if (sumG < 1e-12) continue; // no resistors connected — capacitor can't charge/discharge
+
+      const vThevenin = sumGV / sumG;
+      const rThevenin = 1 / sumG;
+      const C = parseCapacitance(cap.state.value);
+      const tau = rThevenin * C;
+      cap.state.vc = vc + (vThevenin - vc) * (1 - Math.exp(-dt / Math.max(tau, 1e-6)));
+    }
+  }
+
+  updateScopeHistory(r) {
+    if (!this.scopePins || this.scopePins.length === 0) return;
+    const entry = {
+      voltages: this.scopePins.map((p) => r.voltageOf(p.partId, p.pin) ?? null),
+    };
+    this.scopeHistory.push(entry);
+    if (this.scopeHistory.length > 150) this.scopeHistory.shift();
   }
 
   // ---- low level GPIO API used by the Arduino-style runtime ----

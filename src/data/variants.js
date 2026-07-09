@@ -11,4 +11,9 @@ export const PART_VARIANTS = {
     options: ['10', '100', '220', '330', '1k', '2k', '5.1k', '10k', '100k', '1M'],
     formatLabel: (v) => `${v}Ω`,
   },
+  capacitor: {
+    key: 'value',
+    options: ['10n', '100n', '1u', '10u', '100u', '470u', '1000u'],
+    formatLabel: (v) => `${v}F`,
+  },
 };

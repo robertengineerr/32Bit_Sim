@@ -1,10 +1,19 @@
 // Computes local (x, y) coordinates for each pin of a catalog part, evenly
 // spaced along whichever side ('left' | 'right' | 'top' | 'bottom') it belongs to.
+// Pins with a `xy` property are placed at those exact local coordinates instead.
 export function computePinPositions(def) {
   const bySide = { left: [], right: [], top: [], bottom: [] };
-  for (const pin of def.pins) bySide[pin.side].push(pin);
-
   const positions = {};
+
+  for (const pin of def.pins) {
+    // xy-positioned pins skip the side-based placement entirely
+    if (pin.xy) {
+      positions[pin.name] = { x: pin.xy.x, y: pin.xy.y };
+      continue;
+    }
+    if (bySide[pin.side]) bySide[pin.side].push(pin);
+  }
+
   const place = (list, isVertical) => {
     const n = list.length;
     list.forEach((pin, i) => {

@@ -5,11 +5,16 @@ import { AudioManager } from './engine/audio.js';
 import { buildDefaultCircuit, EXAMPLES } from './data/examples.js';
 import { createPart } from './utils/circuitFactory.js';
 import { saveToLocalStorage, loadFromLocalStorage, downloadProject, deserializeProject } from './utils/persist.js';
+import { catalog } from './data/partsCatalog.js';
 import Canvas from './components/Canvas.js';
 import Toolbox from './components/Toolbox.js';
 import CodeEditor from './components/CodeEditor.js';
 import ConsolePanel from './components/ConsolePanel.js';
 import PartProperties from './components/PartProperties.js';
+import OscilloscopePanel from './components/OscilloscopePanel.js';
+
+const SCOPE_COLORS = ['#ef4444', '#fbbf24', '#22c55e', '#3b82f6'];
+
 function useForceRender() {
   const [, setN] = useState(0);
   return useCallback(() => setN(n => n + 1), []);
@@ -29,6 +34,8 @@ export default function App() {
   const [running, setRunning] = useState(false);
   const [consoleLines, setConsoleLines] = useState([]);
   const [snippetName, setSnippetName] = useState('');
+  const [probeMode, setProbeMode] = useState(false);
+  const [scopePins, setScopePins] = useState([]);
   const fileInputRef = useRef(null);
   useEffect(() => {
     simulator.onConsole = line => setConsoleLines(prev => [...prev.slice(-499), line]);
@@ -117,6 +124,24 @@ export default function App() {
     reader.readAsText(file);
     e.target.value = '';
   }, [simulator, bump]);
+
+  const handleScopePin = useCallback((partId, pin) => {
+    setScopePins(prev => {
+      // Don't add duplicates or exceed 4
+      if (prev.some(p => p.partId === partId && p.pin === pin)) return prev;
+      if (prev.length >= 4) return prev;
+      const def = catalog[partId] || null;
+      const part = simulator.getPart(partId);
+      const partDef = part ? catalog[part.type] : null;
+      const label = partDef ? `${partDef.label.split(' ')[0]}·${pin}` : `${partId.slice(0, 6)}·${pin}`;
+      const color = SCOPE_COLORS[prev.length];
+      const next = [...prev, { partId, pin, color, label }];
+      simulator.scopePins = next;
+      return next;
+    });
+    bump();
+  }, [simulator, bump]);
+
   return /*#__PURE__*/React.createElement("div", {
     className: "app"
   }, /*#__PURE__*/React.createElement("header", {
@@ -128,13 +153,17 @@ export default function App() {
   }, !running ? /*#__PURE__*/React.createElement("button", {
     className: "btn primary",
     onClick: handleRun
-  }, "\u25B6 Run") : /*#__PURE__*/React.createElement("button", {
+  }, "▶ Run") : /*#__PURE__*/React.createElement("button", {
     className: "btn danger",
     onClick: handleStop
-  }, "\u25A0 Stop"), /*#__PURE__*/React.createElement("button", {
+  }, "■ Stop"), /*#__PURE__*/React.createElement("button", {
     className: "btn",
     onClick: handleReset
-  }, "Reset Pins"), /*#__PURE__*/React.createElement("select", {
+  }, "Reset Pins"), /*#__PURE__*/React.createElement("button", {
+    className: probeMode ? "btn primary" : "btn",
+    onClick: () => setProbeMode(m => !m),
+    title: "Probe mode: click pins to add them to the oscilloscope"
+  }, "🔬 Probe"), /*#__PURE__*/React.createElement("select", {
     className: "btn",
     value: snippetName,
     onChange: e => {
@@ -153,7 +182,7 @@ export default function App() {
     }
   }, /*#__PURE__*/React.createElement("option", {
     value: ""
-  }, "Load example\u2026"), EXAMPLES.map(ex => /*#__PURE__*/React.createElement("option", {
+  }, "Load example…"), EXAMPLES.map(ex => /*#__PURE__*/React.createElement("option", {
     key: ex.name,
     value: ex.name
   }, ex.name))), /*#__PURE__*/React.createElement("button", {
@@ -192,7 +221,9 @@ export default function App() {
     setSelectedIds: setSelectedIds,
     selectedWireId: selectedWireId,
     setSelectedWireId: setSelectedWireId,
-    onResetBoard: handleReset
+    onResetBoard: handleReset,
+    probeMode: probeMode,
+    onScopePin: handleScopePin
   })), /*#__PURE__*/React.createElement("div", {
     className: "side-panel"
   }, /*#__PURE__*/React.createElement("div", {
@@ -211,5 +242,14 @@ export default function App() {
     className: "panel-title"
   }, "Serial Monitor"), /*#__PURE__*/React.createElement(ConsolePanel, {
     lines: consoleLines
+  }), scopePins.length > 0 && /*#__PURE__*/React.createElement(OscilloscopePanel, {
+    scopePins: scopePins,
+    history: simulator.scopeHistory,
+    onRemove: i => {
+      const next = scopePins.filter((_, idx) => idx !== i);
+      setScopePins(next);
+      simulator.scopePins = next;
+      bump();
+    }
   }))));
 }

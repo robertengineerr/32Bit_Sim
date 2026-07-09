@@ -11,7 +11,8 @@ const SIDE_LABEL = {
   left: { x: -13, y: 3, anchor: 'end' },
   right: { x: 13, y: 3, anchor: 'start' },
   top: { x: 0, y: -11, anchor: 'middle' },
-  bottom: { x: 0, y: 17, anchor: 'middle' }
+  bottom: { x: 0, y: 17, anchor: 'middle' },
+  none: null, // no label for xy-positioned pins
 };
 export default function Pin({
   x,
@@ -23,11 +24,15 @@ export default function Pin({
   flipped,
   level,
   isWireEndpoint,
+  hitRadius,
   onPinDown,
-  onPinUp
+  onPinUp,
+  onMouseEnter,
+  onMouseLeave
 }) {
   const color = level ? level.kind === 'digital' && level.value === 'LOW' ? '#6b7280' : KIND_COLOR[level.kind] : '#94a3b8';
-  const lp = SIDE_LABEL[side] || SIDE_LABEL.bottom;
+  const lp = SIDE_LABEL[side] !== undefined ? SIDE_LABEL[side] : SIDE_LABEL.bottom;
+  const r = hitRadius !== undefined ? hitRadius : 9;
   return /*#__PURE__*/React.createElement("g", {
     transform: `translate(${x} ${y})`,
     onMouseDown: e => {
@@ -38,18 +43,20 @@ export default function Pin({
       e.stopPropagation();
       onPinUp && onPinUp(name);
     },
+    onMouseEnter: onMouseEnter ? () => onMouseEnter() : undefined,
+    onMouseLeave: onMouseLeave ? () => onMouseLeave() : undefined,
     style: {
       cursor: 'crosshair'
     }
   }, /*#__PURE__*/React.createElement("circle", {
-    r: 9,
+    r: r,
     fill: "transparent"
   }), /*#__PURE__*/React.createElement("circle", {
     r: 4,
     fill: color,
     stroke: isWireEndpoint ? '#facc15' : '#111827',
     strokeWidth: isWireEndpoint ? 2 : 1
-  }), /*#__PURE__*/React.createElement("g", {
+  }), lp !== null && /*#__PURE__*/React.createElement("g", {
     transform: `translate(${lp.x} ${lp.y})`,
     style: {
       pointerEvents: 'none'

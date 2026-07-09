@@ -549,42 +549,209 @@ export default function PartBody({
       }
     case 'breadboard':
       {
-        const cols = 30,
-          rows = 10;
-        const dots = [];
-        for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-          dots.push(/*#__PURE__*/React.createElement("circle", {
-            key: `${r}-${c}`,
-            cx: 16 + c * ((w - 32) / cols),
-            cy: 26 + r * ((h - 52) / rows),
-            r: 1.4,
-            fill: "#94a3b8"
+        // New 20-row mini breadboard render
+        // Board dimensions: w=360, h=370
+        const BB_ROWS = 20;
+        const BB_SPACING = 16;
+        const BB_Y0 = 32;
+        // Left strip columns: a=64, b=82, c=100(skip-pin), d=118, e=136
+        // Right strip columns: f=196, g=214, h=232(skip-pin), i=250, j=268
+        // Power rails: LP=20, LN=38, RP=322, RN=304
+        const leftCols = [64, 82, 100, 118, 136];
+        const rightCols = [196, 214, 232, 250, 268];
+        const leftColNames = ['a', 'b', 'c', 'd', 'e'];
+        const rightColNames = ['f', 'g', 'h', 'i', 'j'];
+        // Skip col c (x=100) and col h (x=232) since Pin dot renders there
+        const skipLeftX = 100;
+        const skipRightX = 232;
+
+        const elements = [];
+
+        // Board background
+        elements.push(/*#__PURE__*/React.createElement("rect", {
+          key: "board",
+          x: 0, y: 0, width: w, height: h,
+          rx: 6, fill: "#0a1a08", stroke: "#0f2a0d", strokeWidth: 2
+        }));
+
+        // Left power rail + (red strip)
+        elements.push(/*#__PURE__*/React.createElement("rect", {
+          key: "lrail-plus",
+          x: 8, y: 18, width: 20, height: 330,
+          fill: "#3f0808"
+        }));
+        // Left power rail - (blue strip)
+        elements.push(/*#__PURE__*/React.createElement("rect", {
+          key: "lrail-minus",
+          x: 30, y: 18, width: 20, height: 330,
+          fill: "#081830"
+        }));
+
+        // Left power rail holes
+        for (let n = 1; n <= BB_ROWS; n++) {
+          const ry = BB_Y0 + (n - 1) * BB_SPACING;
+          elements.push(/*#__PURE__*/React.createElement("circle", {
+            key: `lp-${n}`, cx: 18, cy: ry, r: 2.5, fill: "#7f1d1d"
+          }));
+          elements.push(/*#__PURE__*/React.createElement("circle", {
+            key: `ln-${n}`, cx: 39, cy: ry, r: 2.5, fill: "#1e3a5f"
           }));
         }
-        return /*#__PURE__*/React.createElement("g", null, /*#__PURE__*/React.createElement("rect", {
-          x: 0,
-          y: 0,
-          width: w,
-          height: h,
-          rx: 6,
-          fill: "#e5e7eb",
-          stroke: "#cbd5e1",
-          strokeWidth: 2
-        }), /*#__PURE__*/React.createElement("rect", {
-          x: 8,
-          y: 6,
-          width: w - 16,
-          height: 12,
-          fill: "#fca5a5",
-          opacity: 0.5
-        }), /*#__PURE__*/React.createElement("rect", {
-          x: 8,
-          y: h - 18,
-          width: w - 16,
-          height: 12,
-          fill: "#93c5fd",
-          opacity: 0.5
-        }), dots);
+
+        // Left strip holes (5 cols x 20 rows), skip col c (x=100)
+        for (let n = 1; n <= BB_ROWS; n++) {
+          const ry = BB_Y0 + (n - 1) * BB_SPACING;
+          for (const cx of leftCols) {
+            if (cx === skipLeftX) continue; // pin dot renders here
+            elements.push(/*#__PURE__*/React.createElement("circle", {
+              key: `ls-${n}-${cx}`, cx, cy: ry, r: 2.5, fill: "#1a0e05"
+            }));
+          }
+        }
+
+        // Center trench
+        elements.push(/*#__PURE__*/React.createElement("rect", {
+          key: "trench",
+          x: 148, y: 18, width: 46, height: 330,
+          fill: "#050d05"
+        }));
+
+        // Right strip holes (5 cols x 20 rows), skip col h (x=232)
+        for (let n = 1; n <= BB_ROWS; n++) {
+          const ry = BB_Y0 + (n - 1) * BB_SPACING;
+          for (const cx of rightCols) {
+            if (cx === skipRightX) continue; // pin dot renders here
+            elements.push(/*#__PURE__*/React.createElement("circle", {
+              key: `rs-${n}-${cx}`, cx, cy: ry, r: 2.5, fill: "#1a0e05"
+            }));
+          }
+        }
+
+        // Right power rail - (blue strip at x=292)
+        elements.push(/*#__PURE__*/React.createElement("rect", {
+          key: "rrail-minus",
+          x: 282, y: 18, width: 20, height: 330,
+          fill: "#081830"
+        }));
+        // Right power rail + (red strip at x=314)
+        elements.push(/*#__PURE__*/React.createElement("rect", {
+          key: "rrail-plus",
+          x: 304, y: 18, width: 20, height: 330,
+          fill: "#3f0808"
+        }));
+
+        // Right power rail holes
+        for (let n = 1; n <= BB_ROWS; n++) {
+          const ry = BB_Y0 + (n - 1) * BB_SPACING;
+          elements.push(/*#__PURE__*/React.createElement("circle", {
+            key: `rn-${n}`, cx: 292, cy: ry, r: 2.5, fill: "#1e3a5f"
+          }));
+          elements.push(/*#__PURE__*/React.createElement("circle", {
+            key: `rp-${n}`, cx: 315, cy: ry, r: 2.5, fill: "#7f1d1d"
+          }));
+        }
+
+        // Row numbers 1-20
+        for (let n = 1; n <= BB_ROWS; n++) {
+          const ry = BB_Y0 + (n - 1) * BB_SPACING;
+          elements.push(/*#__PURE__*/React.createElement("text", {
+            key: `rn-lbl-${n}`, x: 56, y: ry + 4,
+            fontSize: 7, fill: "#2d4a2d", textAnchor: "middle"
+          }, n));
+          elements.push(/*#__PURE__*/React.createElement("text", {
+            key: `rn-rlbl-${n}`, x: 278, y: ry + 4,
+            fontSize: 7, fill: "#2d4a2d", textAnchor: "middle"
+          }, n));
+        }
+
+        // Column labels left: a b c d e
+        leftCols.forEach((cx, i) => {
+          elements.push(/*#__PURE__*/React.createElement("text", {
+            key: `lcol-${i}`, x: cx, y: 14,
+            fontSize: 7, fill: "#2d4a2d", textAnchor: "middle"
+          }, leftColNames[i]));
+        });
+        // Column labels right: f g h i j
+        rightCols.forEach((cx, i) => {
+          elements.push(/*#__PURE__*/React.createElement("text", {
+            key: `rcol-${i}`, x: cx, y: 14,
+            fontSize: 7, fill: "#2d4a2d", textAnchor: "middle"
+          }, rightColNames[i]));
+        });
+
+        return /*#__PURE__*/React.createElement("g", null, ...elements);
+      }
+    case 'capacitor':
+      {
+        // Schematic symbol: two vertical plates with leads
+        // w=50, h=40
+        const vc = (part.state && part.state.vc != null) ? part.state.vc : 0;
+        return /*#__PURE__*/React.createElement("g", null,
+          // Dark background
+          /*#__PURE__*/React.createElement("rect", {
+            x: 0, y: 0, width: w, height: h,
+            rx: 3, fill: "#111827", stroke: "#1f2937", strokeWidth: 1
+          }),
+          // Left lead: x=0,y=h/2 to x=15,y=h/2
+          /*#__PURE__*/React.createElement("line", {
+            x1: 0, y1: h / 2, x2: 15, y2: h / 2,
+            stroke: "#a8a29e", strokeWidth: 2
+          }),
+          // Left plate (vertical line at x=18)
+          /*#__PURE__*/React.createElement("line", {
+            x1: 18, y1: 4, x2: 18, y2: h - 4,
+            stroke: "#e2e8f0", strokeWidth: 3
+          }),
+          // Right plate (vertical line at x=32)
+          /*#__PURE__*/React.createElement("line", {
+            x1: 32, y1: 4, x2: 32, y2: h - 4,
+            stroke: "#e2e8f0", strokeWidth: 3
+          }),
+          // Right lead: x=35,y=h/2 to x=w,y=h/2
+          /*#__PURE__*/React.createElement("line", {
+            x1: 35, y1: h / 2, x2: w, y2: h / 2,
+            stroke: "#a8a29e", strokeWidth: 2
+          }),
+          // Voltage label
+          /*#__PURE__*/React.createElement("text", {
+            x: w / 2, y: h - 3,
+            textAnchor: "middle", fontSize: 7, fill: "#22c55e"
+          }, vc.toFixed(2), "V")
+        );
+      }
+    case 'voltmeter':
+      {
+        // w=90, h=60
+        let voltDisplay = '---';
+        if (resolve) {
+          const vPlus = resolve.voltageOf(part.id, '+');
+          const vMinus = resolve.voltageOf(part.id, '-');
+          if (vPlus !== null && vMinus !== null) {
+            voltDisplay = (vPlus - vMinus).toFixed(2) + 'V';
+          }
+        }
+        return /*#__PURE__*/React.createElement("g", null,
+          // Body background
+          /*#__PURE__*/React.createElement("rect", {
+            x: 0, y: 0, width: w, height: h,
+            rx: 4, fill: "#1a3a1a", stroke: "#0f2a0d", strokeWidth: 2
+          }),
+          // "V" label
+          /*#__PURE__*/React.createElement("text", {
+            x: w / 2, y: 14,
+            textAnchor: "middle", fontSize: 10, fill: "#22c55e", fontWeight: "bold"
+          }, "V"),
+          // Display box
+          /*#__PURE__*/React.createElement("rect", {
+            x: 8, y: 20, width: w - 16, height: 26,
+            rx: 3, fill: "#050d05", stroke: "#22c55e", strokeWidth: 1
+          }),
+          // Voltage reading
+          /*#__PURE__*/React.createElement("text", {
+            x: w / 2, y: 37,
+            textAnchor: "middle", fontSize: 11, fill: "#22c55e", fontFamily: "monospace"
+          }, voltDisplay)
+        );
       }
     case 'resistor':
       {

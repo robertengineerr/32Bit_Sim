@@ -11,13 +11,16 @@ export default function PartInstance({
   onPartMouseDown,
   onPinDown,
   onPinUp,
-  onInteract
+  onInteract,
+  onPinHover,
+  onPinLeave
 }) {
   const def = catalog[part.type];
   if (!def) return null;
   const positions = computePinPositions(def);
   const rotation = part.rotation || 0;
   const flipped = !!part.flipped;
+  const isBreadboard = def.render === 'breadboard';
   return /*#__PURE__*/React.createElement("g", {
     transform: `translate(${part.x} ${part.y})`
   }, /*#__PURE__*/React.createElement("g", {
@@ -50,6 +53,7 @@ export default function PartInstance({
     fill: "#475569"
   }, part.label || def.label)), def.pins.map(pin => {
     const pos = positions[pin.name];
+    if (!pos) return null;
     const level = resolve ? resolve.levelOf(part.id, pin.name) : null;
     const isEndpoint = wireDraftPin && wireDraftPin.partId === part.id && wireDraftPin.pin === pin.name;
     return /*#__PURE__*/React.createElement(Pin, {
@@ -63,8 +67,11 @@ export default function PartInstance({
       flipped: flipped,
       level: level,
       isWireEndpoint: isEndpoint,
+      hitRadius: isBreadboard ? 6 : undefined,
       onPinDown: name => onPinDown(part.id, name),
-      onPinUp: name => onPinUp(part.id, name)
+      onPinUp: name => onPinUp(part.id, name),
+      onMouseEnter: onPinHover ? () => onPinHover(part.id, pin.name) : undefined,
+      onMouseLeave: onPinLeave ? () => onPinLeave() : undefined
     });
   })));
 }

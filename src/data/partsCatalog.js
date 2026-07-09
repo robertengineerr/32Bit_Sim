@@ -2,7 +2,7 @@
 //
 // Each entry describes:
 //   - label / category / dims (px) for the generic renderer
-//   - pins: [{ name, side: 'left'|'right'|'top'|'bottom', label? }]
+//   - pins: [{ name, side: 'left'|'right'|'top'|'bottom'|'none', label?, xy? }]
 //   - render: which visual component to use (see components/parts/PartRenderer.jsx)
 //   - initialState(): the part's mutable runtime state
 //   - getPinDrive(part, pinName): what this pin actively drives onto its net (or null)
@@ -13,6 +13,27 @@
 // (b) act as a switch that conditionally shorts two of its pins together.
 
 import { GND, VCC, digital, pwm, analog, levelIsHigh, manualSwitchConnectors, controlledSwitchConnectors, readControlLevel } from '../engine/simHelpers.js';
+
+// ---- Breadboard pin geometry constants ----
+const BB_ROWS = 20;
+const BB_SPACING = 16;
+const BB_Y0 = 32;
+const BB_LX = 105; // center column (col c) of left strip
+const BB_RX = 235; // center column (col h) of right strip
+const BB_RAIL_Y = BB_Y0 + (BB_ROWS / 2 - 0.5) * BB_SPACING; // ~184
+
+// Generate breadboard pins: 20 rows × 2 sides + 4 power rail pins = 44 total
+const BB_PINS = [];
+for (let n = 1; n <= BB_ROWS; n++) {
+  const y = BB_Y0 + (n - 1) * BB_SPACING;
+  BB_PINS.push({ name: `${n}L`, xy: { x: BB_LX, y }, side: 'none' });
+  BB_PINS.push({ name: `${n}R`, xy: { x: BB_RX, y }, side: 'none' });
+}
+// Power rail pins
+BB_PINS.push({ name: 'LP', xy: { x: 20, y: BB_RAIL_Y }, side: 'none' });
+BB_PINS.push({ name: 'LN', xy: { x: 38, y: BB_RAIL_Y }, side: 'none' });
+BB_PINS.push({ name: 'RP', xy: { x: 322, y: BB_RAIL_Y }, side: 'none' });
+BB_PINS.push({ name: 'RN', xy: { x: 304, y: BB_RAIL_Y }, side: 'none' });
 
 const ESP32_GPIO_MAP = {
   IO0: 0, IO1: 1, IO2: 2, IO3: 3, IO4: 4, IO5: 5, IO6: 6, IO7: 7, IO8: 8, IO9: 9, IO10: 10,
@@ -69,6 +90,16 @@ export const catalog = {
     // Mirrors real ESP32-C3 dev-board wiring: the BOOT button shorts GPIO9 to GND while held.
     getConnectors: (part) => (part.state.bootPressed ? [['IO9', 'GND1']] : []),
     getPinDrive: esp32PinDrive,
+  },
+
+  breadboard: {
+    label: 'Mini Breadboard (20-row)',
+    category: 'Prototyping',
+    width: 360, height: 370,
+    render: 'breadboard',
+    pins: BB_PINS,
+    initialState: () => ({}),
+    getPinDrive: () => null,
   },
 
   oled: {
@@ -452,19 +483,6 @@ export const catalog = {
     getPinDrive: () => null,
   },
 
-  breadboard: {
-    label: '400 Tie-Point Breadboard',
-    category: 'Prototyping',
-    width: 380, height: 130,
-    render: 'breadboard',
-    pins: [
-      { name: 'TOP+', side: 'top' }, { name: 'TOP-', side: 'top' },
-      { name: 'BOT+', side: 'bottom' }, { name: 'BOT-', side: 'bottom' },
-    ],
-    initialState: () => ({}),
-    getPinDrive: () => null,
-  },
-
   resistor: {
     label: 'Resistor',
     category: 'Passive',
@@ -474,6 +492,20 @@ export const catalog = {
     initialState: (value = '220') => ({ value }),
     getConnectors: (part) => [['A', 'B']],
     getPinDrive: () => null,
+  },
+
+  capacitor: {
+    label: 'Capacitor',
+    category: 'Passive',
+    width: 50, height: 40,
+    render: 'capacitor',
+    pins: [
+      { name: '+', side: 'left' },
+      { name: '-', side: 'right' },
+    ],
+    initialState: (value = '100u') => ({ value, vc: 0 }),
+    getPinDrive: () => null,
+    getConnectors: () => [], // open circuit for logical model
   },
 
   led: {
@@ -545,9 +577,22 @@ export const catalog = {
     getConnectors: controlledSwitchConnectors('B', 'C', 'E'),
     getPinDrive: () => null,
   },
+
+  voltmeter: {
+    label: 'Voltmeter',
+    category: 'Measurement',
+    width: 90, height: 60,
+    render: 'voltmeter',
+    pins: [
+      { name: '+', side: 'left' },
+      { name: '-', side: 'right' },
+    ],
+    initialState: () => ({}),
+    getPinDrive: () => null,
+  },
 };
 
 export const CATEGORY_ORDER = [
   'Boards', 'Power', 'Prototyping', 'Displays', 'Sensors', 'Input', 'Output',
-  'Motors', 'Motor Drivers', 'Actuators', 'IR', 'Logic', 'Passive',
+  'Motors', 'Motor Drivers', 'Actuators', 'IR', 'Logic', 'Passive', 'Measurement',
 ];
