@@ -549,135 +549,55 @@ export default function PartBody({
       }
     case 'breadboard':
       {
-        // New 20-row mini breadboard render
-        // Board dimensions: w=360, h=370
         const BB_ROWS = 20;
         const BB_SPACING = 16;
         const BB_Y0 = 32;
-        // Left strip columns: a=64, b=82, c=100(skip-pin), d=118, e=136
-        // Right strip columns: f=196, g=214, h=232(skip-pin), i=250, j=268
-        // Power rails: LP=20, LN=38, RP=322, RN=304
-        const leftCols = [64, 82, 100, 118, 136];
+        const leftCols =  [64, 82, 100, 118, 136];
         const rightCols = [196, 214, 232, 250, 268];
-        const leftColNames = ['a', 'b', 'c', 'd', 'e'];
+        const leftColNames =  ['a', 'b', 'c', 'd', 'e'];
         const rightColNames = ['f', 'g', 'h', 'i', 'j'];
-        // Skip col c (x=100) and col h (x=232) since Pin dot renders there
-        const skipLeftX = 100;
-        const skipRightX = 232;
 
         const elements = [];
 
-        // Board background
-        elements.push(/*#__PURE__*/React.createElement("rect", {
-          key: "board",
-          x: 0, y: 0, width: w, height: h,
-          rx: 6, fill: "#0a1a08", stroke: "#0f2a0d", strokeWidth: 2
-        }));
+        elements.push(/*#__PURE__*/React.createElement("rect", { key:"board", x:0, y:0, width:w, height:h, rx:6, fill:"#0a1a08", stroke:"#0f2a0d", strokeWidth:2 }));
 
-        // Left power rail + (red strip)
-        elements.push(/*#__PURE__*/React.createElement("rect", {
-          key: "lrail-plus",
-          x: 8, y: 18, width: 20, height: 330,
-          fill: "#3f0808"
-        }));
-        // Left power rail - (blue strip)
-        elements.push(/*#__PURE__*/React.createElement("rect", {
-          key: "lrail-minus",
-          x: 30, y: 18, width: 20, height: 330,
-          fill: "#081830"
-        }));
-
-        // Left power rail holes
+        // Left power rails
+        elements.push(/*#__PURE__*/React.createElement("rect", { key:"lrail-p", x:8,  y:18, width:20, height:330, fill:"#3f0808" }));
+        elements.push(/*#__PURE__*/React.createElement("rect", { key:"lrail-n", x:30, y:18, width:20, height:330, fill:"#081830" }));
         for (let n = 1; n <= BB_ROWS; n++) {
-          const ry = BB_Y0 + (n - 1) * BB_SPACING;
-          elements.push(/*#__PURE__*/React.createElement("circle", {
-            key: `lp-${n}`, cx: 18, cy: ry, r: 2.5, fill: "#7f1d1d"
-          }));
-          elements.push(/*#__PURE__*/React.createElement("circle", {
-            key: `ln-${n}`, cx: 39, cy: ry, r: 2.5, fill: "#1e3a5f"
-          }));
-        }
-
-        // Left strip holes (5 cols x 20 rows), skip col c (x=100)
-        for (let n = 1; n <= BB_ROWS; n++) {
-          const ry = BB_Y0 + (n - 1) * BB_SPACING;
-          for (const cx of leftCols) {
-            if (cx === skipLeftX) continue; // pin dot renders here
-            elements.push(/*#__PURE__*/React.createElement("circle", {
-              key: `ls-${n}-${cx}`, cx, cy: ry, r: 2.5, fill: "#1a0e05"
-            }));
-          }
+          const ry = BB_Y0 + (n-1)*BB_SPACING;
+          elements.push(/*#__PURE__*/React.createElement("circle", { key:`lp-${n}`, cx:18, cy:ry, r:2.5, fill:"#7f1d1d" }));
+          elements.push(/*#__PURE__*/React.createElement("circle", { key:`ln-${n}`, cx:39, cy:ry, r:2.5, fill:"#1e3a5f" }));
         }
 
         // Center trench
-        elements.push(/*#__PURE__*/React.createElement("rect", {
-          key: "trench",
-          x: 148, y: 18, width: 46, height: 330,
-          fill: "#050d05"
-        }));
+        elements.push(/*#__PURE__*/React.createElement("rect", { key:"trench", x:148, y:18, width:46, height:330, fill:"#050d05" }));
 
-        // Right strip holes (5 cols x 20 rows), skip col h (x=232)
+        // Right power rails
+        elements.push(/*#__PURE__*/React.createElement("rect", { key:"rrail-n", x:282, y:18, width:20, height:330, fill:"#081830" }));
+        elements.push(/*#__PURE__*/React.createElement("rect", { key:"rrail-p", x:304, y:18, width:20, height:330, fill:"#3f0808" }));
         for (let n = 1; n <= BB_ROWS; n++) {
-          const ry = BB_Y0 + (n - 1) * BB_SPACING;
-          for (const cx of rightCols) {
-            if (cx === skipRightX) continue; // pin dot renders here
-            elements.push(/*#__PURE__*/React.createElement("circle", {
-              key: `rs-${n}-${cx}`, cx, cy: ry, r: 2.5, fill: "#1a0e05"
-            }));
-          }
+          const ry = BB_Y0 + (n-1)*BB_SPACING;
+          elements.push(/*#__PURE__*/React.createElement("circle", { key:`rn-${n}`, cx:292, cy:ry, r:2.5, fill:"#1e3a5f" }));
+          elements.push(/*#__PURE__*/React.createElement("circle", { key:`rp-${n}`, cx:315, cy:ry, r:2.5, fill:"#7f1d1d" }));
         }
 
-        // Right power rail - (blue strip at x=292)
-        elements.push(/*#__PURE__*/React.createElement("rect", {
-          key: "rrail-minus",
-          x: 282, y: 18, width: 20, height: 330,
-          fill: "#081830"
-        }));
-        // Right power rail + (red strip at x=314)
-        elements.push(/*#__PURE__*/React.createElement("rect", {
-          key: "rrail-plus",
-          x: 304, y: 18, width: 20, height: 330,
-          fill: "#3f0808"
-        }));
-
-        // Right power rail holes
+        // Row numbers
         for (let n = 1; n <= BB_ROWS; n++) {
-          const ry = BB_Y0 + (n - 1) * BB_SPACING;
-          elements.push(/*#__PURE__*/React.createElement("circle", {
-            key: `rn-${n}`, cx: 292, cy: ry, r: 2.5, fill: "#1e3a5f"
-          }));
-          elements.push(/*#__PURE__*/React.createElement("circle", {
-            key: `rp-${n}`, cx: 315, cy: ry, r: 2.5, fill: "#7f1d1d"
-          }));
+          const ry = BB_Y0 + (n-1)*BB_SPACING;
+          elements.push(/*#__PURE__*/React.createElement("text", { key:`rnl-${n}`, x:56,  y:ry+4, fontSize:7, fill:"#2d4a2d", textAnchor:"middle" }, n));
+          elements.push(/*#__PURE__*/React.createElement("text", { key:`rnr-${n}`, x:278, y:ry+4, fontSize:7, fill:"#2d4a2d", textAnchor:"middle" }, n));
         }
 
-        // Row numbers 1-20
-        for (let n = 1; n <= BB_ROWS; n++) {
-          const ry = BB_Y0 + (n - 1) * BB_SPACING;
-          elements.push(/*#__PURE__*/React.createElement("text", {
-            key: `rn-lbl-${n}`, x: 56, y: ry + 4,
-            fontSize: 7, fill: "#2d4a2d", textAnchor: "middle"
-          }, n));
-          elements.push(/*#__PURE__*/React.createElement("text", {
-            key: `rn-rlbl-${n}`, x: 278, y: ry + 4,
-            fontSize: 7, fill: "#2d4a2d", textAnchor: "middle"
-          }, n));
-        }
+        // Column labels
+        leftCols.forEach((cx, i)  => elements.push(/*#__PURE__*/React.createElement("text", { key:`lcol-${i}`, x:cx, y:14, fontSize:7, fill:"#2d4a2d", textAnchor:"middle" }, leftColNames[i])));
+        rightCols.forEach((cx, i) => elements.push(/*#__PURE__*/React.createElement("text", { key:`rcol-${i}`, x:cx, y:14, fontSize:7, fill:"#2d4a2d", textAnchor:"middle" }, rightColNames[i])));
 
-        // Column labels left: a b c d e
-        leftCols.forEach((cx, i) => {
-          elements.push(/*#__PURE__*/React.createElement("text", {
-            key: `lcol-${i}`, x: cx, y: 14,
-            fontSize: 7, fill: "#2d4a2d", textAnchor: "middle"
-          }, leftColNames[i]));
-        });
-        // Column labels right: f g h i j
-        rightCols.forEach((cx, i) => {
-          elements.push(/*#__PURE__*/React.createElement("text", {
-            key: `rcol-${i}`, x: cx, y: 14,
-            fontSize: 7, fill: "#2d4a2d", textAnchor: "middle"
-          }, rightColNames[i]));
-        });
+        // Rail labels
+        elements.push(/*#__PURE__*/React.createElement("text", { key:"ll-p", x:18,  y:h-6, fontSize:6, fill:"#ef4444", textAnchor:"middle" }, "+"));
+        elements.push(/*#__PURE__*/React.createElement("text", { key:"ll-n", x:39,  y:h-6, fontSize:6, fill:"#3b82f6", textAnchor:"middle" }, "−"));
+        elements.push(/*#__PURE__*/React.createElement("text", { key:"rl-n", x:292, y:h-6, fontSize:6, fill:"#3b82f6", textAnchor:"middle" }, "−"));
+        elements.push(/*#__PURE__*/React.createElement("text", { key:"rl-p", x:315, y:h-6, fontSize:6, fill:"#ef4444", textAnchor:"middle" }, "+"));
 
         return /*#__PURE__*/React.createElement("g", null, ...elements);
       }
@@ -721,7 +641,7 @@ export default function PartBody({
       }
     case 'voltmeter':
       {
-        // w=90, h=60
+        // w=90, h=60 — pins on bottom, use in parallel
         let voltDisplay = '---';
         if (resolve) {
           const vPlus = resolve.voltageOf(part.id, '+');
@@ -731,26 +651,44 @@ export default function PartBody({
           }
         }
         return /*#__PURE__*/React.createElement("g", null,
-          // Body background
-          /*#__PURE__*/React.createElement("rect", {
-            x: 0, y: 0, width: w, height: h,
-            rx: 4, fill: "#1a3a1a", stroke: "#0f2a0d", strokeWidth: 2
-          }),
-          // "V" label
-          /*#__PURE__*/React.createElement("text", {
-            x: w / 2, y: 14,
-            textAnchor: "middle", fontSize: 10, fill: "#22c55e", fontWeight: "bold"
-          }, "V"),
-          // Display box
-          /*#__PURE__*/React.createElement("rect", {
-            x: 8, y: 20, width: w - 16, height: 26,
-            rx: 3, fill: "#050d05", stroke: "#22c55e", strokeWidth: 1
-          }),
-          // Voltage reading
-          /*#__PURE__*/React.createElement("text", {
-            x: w / 2, y: 37,
-            textAnchor: "middle", fontSize: 11, fill: "#22c55e", fontFamily: "monospace"
-          }, voltDisplay)
+          /*#__PURE__*/React.createElement("rect", { x:0, y:0, width:w, height:h, rx:4, fill:"#1a3a1a", stroke:"#0f2a0d", strokeWidth:2 }),
+          /*#__PURE__*/React.createElement("text", { x:w/2, y:14, textAnchor:"middle", fontSize:10, fill:"#22c55e", fontWeight:"bold" }, "VOLT"),
+          /*#__PURE__*/React.createElement("rect", { x:8, y:18, width:w-16, height:26, rx:3, fill:"#050d05", stroke:"#22c55e", strokeWidth:1 }),
+          /*#__PURE__*/React.createElement("text", { x:w/2, y:35, textAnchor:"middle", fontSize:11, fill:"#22c55e", fontFamily:"monospace" }, voltDisplay),
+          /*#__PURE__*/React.createElement("text", { x:w/2-8, y:h-4, textAnchor:"middle", fontSize:7, fill:"#22c55e" }, "||parallel"),
+        );
+      }
+    case 'ammeter':
+      {
+        // w=80, h=50 — pins left/right, use in series
+        let currentDisplay = '---';
+        if (resolve) {
+          const vA = resolve.voltageOf(part.id, 'A');
+          const vB = resolve.voltageOf(part.id, 'B');
+          if (vA !== null && vB !== null) {
+            const mA = (vA - vB) * 100 * 1000; // G=100 → I=ΔV*100, convert A→mA
+            currentDisplay = `${mA.toFixed(1)}mA`;
+          }
+        }
+        return /*#__PURE__*/React.createElement("g", null,
+          /*#__PURE__*/React.createElement("rect", { x:0, y:0, width:w, height:h, rx:4, fill:"#1a0a0a", stroke:"#6a1010", strokeWidth:2 }),
+          /*#__PURE__*/React.createElement("text", { x:w/2, y:14, textAnchor:"middle", fontSize:10, fill:"#f87171", fontWeight:"bold" }, "AMP"),
+          /*#__PURE__*/React.createElement("rect", { x:6, y:18, width:w-12, height:22, rx:3, fill:"#050505", stroke:"#f87171", strokeWidth:1 }),
+          /*#__PURE__*/React.createElement("text", { x:w/2, y:33, textAnchor:"middle", fontSize:9, fill:"#f87171", fontFamily:"monospace" }, currentDisplay),
+          /*#__PURE__*/React.createElement("text", { x:w/2, y:h-4, textAnchor:"middle", fontSize:7, fill:"#f87171" }, "→series"),
+        );
+      }
+    case 'psu':
+      {
+        // w=90, h=60 — + and - on right side
+        const voltage = part.state.voltage || '3.3';
+        return /*#__PURE__*/React.createElement("g", null,
+          /*#__PURE__*/React.createElement("rect", { x:0, y:0, width:w, height:h, rx:4, fill:"#1a1a3a", stroke:"#2a2a6a", strokeWidth:2 }),
+          /*#__PURE__*/React.createElement("text", { x:(w-8)/2, y:14, textAnchor:"middle", fontSize:9, fill:"#818cf8", fontWeight:"bold" }, "DC PSU"),
+          /*#__PURE__*/React.createElement("rect", { x:6, y:18, width:w-20, height:26, rx:3, fill:"#050510", stroke:"#818cf8", strokeWidth:1 }),
+          /*#__PURE__*/React.createElement("text", { x:(w-14)/2+6, y:35, textAnchor:"middle", fontSize:13, fill:"#818cf8", fontFamily:"monospace" }, `${parseFloat(voltage).toFixed(1)}V`),
+          /*#__PURE__*/React.createElement("text", { x:w-6, y:22, textAnchor:"middle", fontSize:9, fill:"#ef4444", fontWeight:"bold" }, "+"),
+          /*#__PURE__*/React.createElement("text", { x:w-6, y:42, textAnchor:"middle", fontSize:9, fill:"#94a3b8", fontWeight:"bold" }, "−"),
         );
       }
     case 'resistor':

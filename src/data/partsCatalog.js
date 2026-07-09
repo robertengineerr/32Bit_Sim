@@ -18,22 +18,27 @@ import { GND, VCC, digital, pwm, analog, levelIsHigh, manualSwitchConnectors, co
 const BB_ROWS = 20;
 const BB_SPACING = 16;
 const BB_Y0 = 32;
-const BB_LX = 105; // center column (col c) of left strip
-const BB_RX = 235; // center column (col h) of right strip
 const BB_RAIL_Y = BB_Y0 + (BB_ROWS / 2 - 0.5) * BB_SPACING; // ~184
+// Column x positions matching PartBody.js rendering
+const BB_COL_L = ['a','b','c','d','e'];
+const BB_COL_X_L = [64, 82, 100, 118, 136];
+const BB_COL_R = ['f','g','h','i','j'];
+const BB_COL_X_R = [196, 214, 232, 250, 268];
 
-// Generate breadboard pins: 20 rows × 2 sides + 4 power rail pins = 44 total
+// Generate breadboard pins: 20 rows × 10 cols + 4 power rail pins = 204 total
 const BB_PINS = [];
 for (let n = 1; n <= BB_ROWS; n++) {
   const y = BB_Y0 + (n - 1) * BB_SPACING;
-  BB_PINS.push({ name: `${n}L`, xy: { x: BB_LX, y }, side: 'none' });
-  BB_PINS.push({ name: `${n}R`, xy: { x: BB_RX, y }, side: 'none' });
+  for (let ci = 0; ci < 5; ci++) {
+    BB_PINS.push({ name: `${n}${BB_COL_L[ci]}`, xy: { x: BB_COL_X_L[ci], y }, side: 'none' });
+    BB_PINS.push({ name: `${n}${BB_COL_R[ci]}`, xy: { x: BB_COL_X_R[ci], y }, side: 'none' });
+  }
 }
-// Power rail pins
-BB_PINS.push({ name: 'LP', xy: { x: 20, y: BB_RAIL_Y }, side: 'none' });
-BB_PINS.push({ name: 'LN', xy: { x: 38, y: BB_RAIL_Y }, side: 'none' });
-BB_PINS.push({ name: 'RP', xy: { x: 322, y: BB_RAIL_Y }, side: 'none' });
-BB_PINS.push({ name: 'RN', xy: { x: 304, y: BB_RAIL_Y }, side: 'none' });
+// Power rail pins (single pin per rail, represents entire rail bus)
+BB_PINS.push({ name: 'LP', xy: { x: 18, y: BB_RAIL_Y }, side: 'none' });
+BB_PINS.push({ name: 'LN', xy: { x: 39, y: BB_RAIL_Y }, side: 'none' });
+BB_PINS.push({ name: 'RN', xy: { x: 292, y: BB_RAIL_Y }, side: 'none' });
+BB_PINS.push({ name: 'RP', xy: { x: 315, y: BB_RAIL_Y }, side: 'none' });
 
 const ESP32_GPIO_MAP = {
   IO0: 0, IO1: 1, IO2: 2, IO3: 3, IO4: 4, IO5: 5, IO6: 6, IO7: 7, IO8: 8, IO9: 9, IO10: 10,
@@ -100,6 +105,17 @@ export const catalog = {
     pins: BB_PINS,
     initialState: () => ({}),
     getPinDrive: () => null,
+    // Each row: holes a-e are shorted together; holes f-j are shorted together.
+    getConnectors: () => {
+      const pairs = [];
+      for (let n = 1; n <= 20; n++) {
+        pairs.push(
+          [`${n}a`, `${n}b`], [`${n}b`, `${n}c`], [`${n}c`, `${n}d`], [`${n}d`, `${n}e`],
+          [`${n}f`, `${n}g`], [`${n}g`, `${n}h`], [`${n}h`, `${n}i`], [`${n}i`, `${n}j`],
+        );
+      }
+      return pairs;
+    },
   },
 
   oled: {
@@ -583,12 +599,46 @@ export const catalog = {
     category: 'Measurement',
     width: 90, height: 60,
     render: 'voltmeter',
+    // Both pins on bottom so it clearly goes in parallel (like meter probes)
     pins: [
-      { name: '+', side: 'left' },
-      { name: '-', side: 'right' },
+      { name: '+', side: 'bottom', label: 'V+' },
+      { name: '-', side: 'bottom', label: 'V−' },
     ],
     initialState: () => ({}),
     getPinDrive: () => null,
+  },
+
+  ammeter: {
+    label: 'Ammeter',
+    category: 'Measurement',
+    width: 80, height: 50,
+    render: 'ammeter',
+    // Left/right pins so it clearly goes in series
+    pins: [
+      { name: 'A', side: 'left', label: 'A+' },
+      { name: 'B', side: 'right', label: 'A−' },
+    ],
+    initialState: () => ({}),
+    getPinDrive: () => null,
+    getConnectors: () => [],
+  },
+
+  psu: {
+    label: 'DC Power Supply',
+    category: 'Power',
+    width: 90, height: 60,
+    render: 'psu',
+    pins: [
+      { name: '+', side: 'right', label: '+' },
+      { name: '-', side: 'right', label: '−' },
+    ],
+    initialState: (voltage = '3.3') => ({ voltage: String(voltage) }),
+    getPinDrive: (part, pin) => {
+      if (pin === '+') return { kind: 'vcc', voltage: parseFloat(part.state.voltage) || 3.3 };
+      if (pin === '-') return GND;
+      return null;
+    },
+    getConnectors: () => [],
   },
 };
 

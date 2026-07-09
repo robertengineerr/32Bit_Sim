@@ -12,7 +12,7 @@ export const VCC_VOLTS = 3.3;
 export function levelToVoltage(level) {
   if (!level) return null;
   if (level.kind === 'gnd') return 0;
-  if (level.kind === 'vcc') return VCC_VOLTS;
+  if (level.kind === 'vcc') return level.voltage !== undefined ? level.voltage : VCC_VOLTS;
   if (level.kind === 'digital') return level.value === 'HIGH' ? VCC_VOLTS : 0;
   if (level.kind === 'pwm') return (level.value / 255) * VCC_VOLTS;
   if (level.kind === 'analog') return (level.value / 4095) * VCC_VOLTS;

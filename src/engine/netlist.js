@@ -54,9 +54,21 @@ function solveAnalogVoltages(parts, wires, catalog, netLevels, partById) {
   // so each resistor terminal is its own "analog net".
   const uf = new UnionFind();
 
-  // Only wire-based connections (no part getConnectors)
+  // Wire-based connections
   for (const w of wires) {
     uf.union(pinKey(w.a.partId, w.a.pin), pinKey(w.b.partId, w.b.pin));
+  }
+
+  // Non-resistor part connectors (breadboard rows, closed switches, etc.)
+  // This ensures breadboard rows are the same analog net.
+  for (const part of parts) {
+    if (part.type === 'resistor') continue;
+    const def = catalog[part.type];
+    if (!def || !def.getConnectors) continue;
+    const pairs = def.getConnectors(part, netLevels, partById) || [];
+    for (const [pa, pb] of pairs) {
+      uf.union(pinKey(part.id, pa), pinKey(part.id, pb));
+    }
   }
 
   // Include all part pins in the UF so isolated pins get a root
@@ -134,6 +146,15 @@ function solveAnalogVoltages(parts, wires, catalog, netLevels, partById) {
     const nB = netOf(keyB);
     if (nA === undefined || nB === undefined || nA === nB) continue;
     edges.push({ netA: nA, netB: nB, G, partId: part.id });
+  }
+
+  // Ammeter: treated as 0.01Ω (G=100) in-series measurement
+  for (const part of parts) {
+    if (part.type !== 'ammeter') continue;
+    const nA = netOf(pinKey(part.id, 'A'));
+    const nB = netOf(pinKey(part.id, 'B'));
+    if (nA === undefined || nB === undefined || nA === nB) continue;
+    edges.push({ netA: nA, netB: nB, G: 100, partId: part.id, isAmmeter: true });
   }
 
   // Gauss-Seidel relaxation: 30 iterations

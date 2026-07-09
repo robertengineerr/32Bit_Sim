@@ -16,4 +16,9 @@ export const PART_VARIANTS = {
     options: ['10n', '100n', '1u', '10u', '100u', '470u', '1000u'],
     formatLabel: (v) => `${v}F`,
   },
+  psu: {
+    key: 'voltage',
+    options: ['1.8', '3.3', '5', '9', '12'],
+    formatLabel: (v) => `${v}V`,
+  },
 };
