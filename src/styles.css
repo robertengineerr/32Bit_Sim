@@ -45,8 +45,9 @@ body {
 .tb-item:hover { background: #334155; border-color: #475569; }
 .tb-variant { color: #64748b; font-size: 10px; }
 
-.canvas-wrap { flex: 1; overflow: auto; background: #0d1117; position: relative; }
-.canvas-svg { width: 2200px; height: 1400px; display: block; }
+.canvas-wrap { flex: 1; overflow: hidden; background: #0d1117; position: relative; }
+.canvas-svg { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+.canvas-svg:active { cursor: grabbing; }
 
 .side-panel {
   width: 420px; display: flex; flex-direction: column; background: #0f172a; border-left: 1px solid #1f2937;

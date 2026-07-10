@@ -44,22 +44,68 @@ export default function Canvas({
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [marqueeRect, setMarqueeRect] = useState(null);
   const [hoveredPinInfo, setHoveredPinInfo] = useState(null); // { partId, pin }
+  // Camera: which world-coordinate rectangle the SVG's viewBox shows. Panning
+  // moves x/y, zooming scales w/h (aspect-ratio locked) around the cursor.
+  const [view, setView] = useState({ x: 0, y: 0, w: 2200, h: 1400 });
   const dragRef = useRef(null); // { origins: Map<partId,{x,y}>, startX, startY }
   const marqueeRef = useRef(null); // { startX, startY, additive, baseSelection }
+  const panRef = useRef(null); // { startClientX, startClientY, startViewX, startViewY }
   const joystickDragRef = useRef(null); // partId
 
   const toLocal = useCallback((clientX, clientY) => {
     const svg = svgRef.current;
     const rect = svg.getBoundingClientRect();
     return {
-      x: clientX - rect.left + svg.scrollLeft,
-      y: clientY - rect.top + svg.scrollTop
+      x: view.x + ((clientX - rect.left) / rect.width) * view.w,
+      y: view.y + ((clientY - rect.top) / rect.height) * view.h
     };
+  }, [view]);
+
+  // Mouse wheel zooms (anchored under the cursor); trackpad two-finger
+  // scrolling pans instead, same feel as the old native-scroll behavior.
+  // Ctrl+wheel (also how browsers report trackpad pinch-zoom) always zooms.
+  // Native (non-passive) listener, since React's onWheel is passive and
+  // can't preventDefault the page from scrolling/zooming.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return undefined;
+    const onWheel = e => {
+      const rect = svg.getBoundingClientRect();
+      const isMouseWheel = Number.isInteger(e.deltaY) && e.deltaX === 0;
+      e.preventDefault();
+      if (!e.ctrlKey && !isMouseWheel) {
+        setView(v => ({
+          ...v,
+          x: v.x + e.deltaX * (v.w / rect.width),
+          y: v.y + e.deltaY * (v.h / rect.height)
+        }));
+        return;
+      }
+      const fx = (e.clientX - rect.left) / rect.width;
+      const fy = (e.clientY - rect.top) / rect.height;
+      setView(v => {
+        const factor = e.deltaY > 0 ? 1.08 : 1 / 1.08;
+        const newW = Math.max(300, Math.min(8000, v.w * factor));
+        const newH = v.h * (newW / v.w);
+        const worldX = v.x + fx * v.w;
+        const worldY = v.y + fy * v.h;
+        return { x: worldX - fx * newW, y: worldY - fy * newH, w: newW, h: newH };
+      });
+    };
+    svg.addEventListener('wheel', onWheel, { passive: false });
+    return () => svg.removeEventListener('wheel', onWheel);
   }, []);
 
   const handleMouseMove = useCallback(e => {
     const pos = toLocal(e.clientX, e.clientY);
     setMousePos(pos);
+    if (panRef.current) {
+      const rect = svgRef.current.getBoundingClientRect();
+      const { startClientX, startClientY, startViewX, startViewY } = panRef.current;
+      const dx = (e.clientX - startClientX) * (view.w / rect.width);
+      const dy = (e.clientY - startClientY) * (view.h / rect.height);
+      setView(v => ({ ...v, x: startViewX - dx, y: startViewY - dy }));
+    }
     if (dragRef.current) {
       const { origins, startX, startY } = dragRef.current;
       const dx = pos.x - startX, dy = pos.y - startY;
@@ -92,7 +138,7 @@ export default function Canvas({
         bump();
       }
     }
-  }, [toLocal, simulator, bump]);
+  }, [toLocal, simulator, bump, view]);
 
   const endDrag = useCallback(() => {
     dragRef.current = null;
@@ -118,14 +164,21 @@ export default function Canvas({
     dragRef.current = { origins, startX: pos.x, startY: pos.y };
   }, [selectedIds, setSelectedIds, setSelectedWireId, toLocal, simulator]);
 
+  // Plain left-drag on empty canvas pans (mouse-wheel users get zoom-on-
+  // scroll, so click-drag is free to mean "navigate" instead of marquee).
+  // Shift/Ctrl/Cmd-drag still marquee-selects, same as before.
   const onCanvasMouseDown = useCallback(e => {
     const additive = e.shiftKey || e.ctrlKey || e.metaKey;
     setSelectedWireId(null);
     if (!additive) setSelectedIds(new Set());
-    const pos = toLocal(e.clientX, e.clientY);
-    marqueeRef.current = { startX: pos.x, startY: pos.y, additive, baseSelection: new Set(selectedIds) };
-    setMarqueeRect({ x: pos.x, y: pos.y, width: 0, height: 0 });
-  }, [toLocal, setSelectedIds, setSelectedWireId, selectedIds]);
+    if (additive) {
+      const pos = toLocal(e.clientX, e.clientY);
+      marqueeRef.current = { startX: pos.x, startY: pos.y, additive, baseSelection: new Set(selectedIds) };
+      setMarqueeRect({ x: pos.x, y: pos.y, width: 0, height: 0 });
+    } else {
+      panRef.current = { startClientX: e.clientX, startClientY: e.clientY, startViewX: view.x, startViewY: view.y };
+    }
+  }, [toLocal, setSelectedIds, setSelectedWireId, selectedIds, view]);
 
   const onPinDown = useCallback((partId, pin) => {
     if (probeMode) {
@@ -152,6 +205,7 @@ export default function Canvas({
 
   const onCanvasMouseUp = useCallback(() => {
     endDrag();
+    panRef.current = null;
     setWireDraft(null);
     if (marqueeRef.current) {
       const { additive, baseSelection } = marqueeRef.current;
@@ -278,6 +332,7 @@ export default function Canvas({
   useEffect(() => {
     const up = () => {
       dragRef.current = null;
+      panRef.current = null;
       setWireDraft(null);
       if (joystickDragRef.current) {
         const part = simulator.getPart(joystickDragRef.current);
@@ -355,6 +410,7 @@ export default function Canvas({
   return /*#__PURE__*/React.createElement("svg", {
     ref: svgRef,
     className: "canvas-svg",
+    viewBox: `${view.x} ${view.y} ${view.w} ${view.h}`,
     onMouseMove: handleMouseMove,
     onMouseUp: onCanvasMouseUp,
     onMouseDown: onCanvasMouseDown,
@@ -370,10 +426,10 @@ export default function Canvas({
     r: 1,
     fill: "#1e293b"
   }))), /*#__PURE__*/React.createElement("rect", {
-    x: 0,
-    y: 0,
-    width: "100%",
-    height: "100%",
+    x: view.x,
+    y: view.y,
+    width: view.w,
+    height: view.h,
     fill: "url(#grid)"
   }), wires.map(w => {
     const partA = simulator.getPart(w.a.partId);
